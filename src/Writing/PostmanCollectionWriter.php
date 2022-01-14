@@ -87,7 +87,7 @@ class PostmanCollectionWriter
         $formdataRawParameters = function ($cleanBodyParameters){
             $parameters = [];
             foreach ($cleanBodyParameters as $key =>$value){
-                $parameters[][] = [
+                $parameters[] = [
                     "key"=>$key,
                     "value"=>$value
                 ];
@@ -95,9 +95,9 @@ class PostmanCollectionWriter
             return $parameters;
         };
         if($mode=='formdata'){
-            $modeRawParameters = json_encode($formdataRawParameters($route['cleanBodyParameters']),JSON_PRETTY_PRINT);
+            $modeRawParameters = $formdataRawParameters($route['cleanBodyParameters']);
         }else{
-            $modeRawParameters = json_encode($route['cleanBodyParameters'], JSON_PRETTY_PRINT);
+            $modeRawParameters = json_encode($route['cleanBodyParameters']);
         }
 
         $method = $route['methods'][0];
