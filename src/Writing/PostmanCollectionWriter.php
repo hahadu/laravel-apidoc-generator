@@ -61,59 +61,58 @@ class PostmanCollectionWriter
     {
 
         $apiDocName = config('apidoc.postman.name') ?: config('app.name') . ' API';
-        $collection = [
-        //    'variables' => [],
-            'info' => [
-                'name' => $apiDocName,
-                '_postman_id' => Uuid::uuid4()->toString(),
-                'description' => config('apidoc.postman.description') ?: '',
-                'schema' => $this->postmanSchema,
-            ],
-            'item' => $this->routeGroups->map(function (Collection $routes, $groupName) {
-                return [
-                    'name' => $groupName,
-                    'description' => $routes->first()['metadata']['groupDescription'],
-                    'item' => $routes->map(\Closure::fromCallable([$this, 'generateEndpointItem']))->toArray(),
-                    'auth' => $routes->map(\Closure::fromCallable([$this, 'generateAuthItem']))->unique()->first(),
-                    'event' => [
-                        [
-                            "listen" => "prerequest",
-                            "script" => [
-                                "type" => "text/javascript",
-                                "exec" => [
-                                    ""
-                                ]
-                            ]
-                        ],
-                        [
-                            "listen" => "test",
-                            "script" => [
-                                "type" => "text/javascript",
-                                "exec" => [
-                                    ""
-                                ]
+        $collection = collect();
+        $collection->offsetSet('info',[
+            'name' => $apiDocName,
+            '_postman_id' => Uuid::uuid4()->toString(),
+            'description' => config('apidoc.postman.description') ?: '',
+            'schema' => $this->postmanSchema,
+        ]);
+        $collection->offsetSet("item",$this->routeGroups->map(function (Collection $routes, $groupName) {
+            return [
+                'name' => $groupName,
+                'description' => $routes->first()['metadata']['groupDescription'],
+                'item' => $routes->map(\Closure::fromCallable([$this, 'generateEndpointItem']))->toArray(),
+                'auth' => $routes->map(\Closure::fromCallable([$this, 'generateAuthItem']))->unique()->first(),
+                'event' => [
+                    [
+                        "listen" => "prerequest",
+                        "script" => [
+                            "type" => "text/javascript",
+                            "exec" => [
+                                ""
                             ]
                         ]
                     ],
-                ];
-            })->values()->toArray(),
-        ];
+                    [
+                        "listen" => "test",
+                        "script" => [
+                            "type" => "text/javascript",
+                            "exec" => [
+                                ""
+                            ]
+                        ]
+                    ]
+                ],
+            ];
+        })->values());
 
         if (! empty($this->auth)) {
-            $collection['auth'] = $this->auth;
+            $collection->offsetSet('auth', $this->auth);
         }
         if($this->postman instanceof Postman){
             $old = $this->postman->collections()->getList()->where('name',$apiDocName);
-            $sendData = json_encode(['collection'=>$collection]);
+            $sendData = collect(['collection'=>$collection]);
+
             if(!$old->isEmpty()){
                 $docInfo = $old->first();
-                dump('update',$this->postman->collections()->update($docInfo['uid'],$sendData));
+                dump('update',$this->postman->collections()->update($docInfo['uid'],$sendData->toJson()));
             }else{
-                dump('create',$this->postman->collections()->create($sendData));
+                dump('create',$this->postman->collections()->create($sendData->toJson()));
             }
         }
 
-        return json_encode($collection, JSON_PRETTY_PRINT);
+        return $collection->toJson(JSON_PRETTY_PRINT);
     }
 
 
