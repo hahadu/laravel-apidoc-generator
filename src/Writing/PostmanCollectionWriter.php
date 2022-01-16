@@ -3,11 +3,12 @@
 namespace Hahadu\ApiDoc\Writing;
 
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Ramsey\Uuid\Uuid;
 use ReflectionMethod;
-
+use Hahadu\PostmanApi\Postman;
 class PostmanCollectionWriter
 {
     /**
@@ -32,6 +33,10 @@ class PostmanCollectionWriter
     private $postmanSchema = "https://schema.getpostman.com/json/collection/v2.1.0/collection.json";
 
     /**
+     * @var Postman
+     */
+    protected $postman;
+    /**
      * CollectionWriter constructor.
      *
      * @param Collection $routeGroups
@@ -42,6 +47,9 @@ class PostmanCollectionWriter
         $this->protocol = Str::startsWith($baseUrl, 'https') ? 'https' : 'http';
         $this->baseUrl = $this->getBaseUrl($baseUrl);
         $this->auth = config('apidoc.postman.auth');
+        if(config('apidoc.postman.api_keys')){
+            $this->postman = new Postman(config('apidoc.postman.api_keys'));
+        }
     }
 
 
@@ -51,10 +59,12 @@ class PostmanCollectionWriter
      */
     public function getCollection()
     {
+
+        $apiDocName = config('apidoc.postman.name') ?: config('app.name') . ' API';
         $collection = [
-            'variables' => [],
+        //    'variables' => [],
             'info' => [
-                'name' => config('apidoc.postman.name') ?: config('app.name') . ' API',
+                'name' => $apiDocName,
                 '_postman_id' => Uuid::uuid4()->toString(),
                 'description' => config('apidoc.postman.description') ?: '',
                 'schema' => $this->postmanSchema,
@@ -64,6 +74,27 @@ class PostmanCollectionWriter
                     'name' => $groupName,
                     'description' => $routes->first()['metadata']['groupDescription'],
                     'item' => $routes->map(\Closure::fromCallable([$this, 'generateEndpointItem']))->toArray(),
+                    'auth' => $routes->map(\Closure::fromCallable([$this, 'generateAuthItem']))->unique()->first(),
+                    'event' => [
+                        [
+                            "listen" => "prerequest",
+                            "script" => [
+                                "type" => "text/javascript",
+                                "exec" => [
+                                    ""
+                                ]
+                            ]
+                        ],
+                        [
+                            "listen" => "test",
+                            "script" => [
+                                "type" => "text/javascript",
+                                "exec" => [
+                                    ""
+                                ]
+                            ]
+                        ]
+                    ],
                 ];
             })->values()->toArray(),
         ];
@@ -71,8 +102,44 @@ class PostmanCollectionWriter
         if (! empty($this->auth)) {
             $collection['auth'] = $this->auth;
         }
+        if($this->postman instanceof Postman){
+            $old = $this->postman->collections()->getList()->where('name',$apiDocName);
+            $sendData = json_encode(['collection'=>$collection]);
+            if(!$old->isEmpty()){
+                $docInfo = $old->first();
+                dump('update',$this->postman->collections()->update($docInfo['uid'],$sendData));
+            }
+            dump('create',$this->postman->collections()->create($sendData));
+        }
 
         return json_encode($collection, JSON_PRETTY_PRINT);
+    }
+
+
+    protected function generateAuthItem($route){
+
+        if($this->getAuth()){
+            return $this->getAuth();
+        }else{
+
+            $position = strrpos($route['headers']['Authorization'], 'Bearer ');
+
+            if ($position !== false) {
+                $header = substr($route['headers']['Authorization'], $position + 7);
+
+                $bearToken = strpos($header, ',') !== false ? strstr(',', $header, true) : $header;
+                $type = "bearer";
+                $type_param = [[
+                    'key'=>'token',
+                    'value'=> $bearToken,
+                    'type'=> 'string'
+                ]];
+                return [
+                    'type'=>$type,
+                    $type => $type_param,
+                ];
+            }
+        }
     }
 
     /**
@@ -82,22 +149,24 @@ class PostmanCollectionWriter
      */
     protected function generateEndpointItem($route)
     {
-        $mode = 'formdata';
+        $mode = 'raw';
 
         $formdataRawParameters = function ($cleanBodyParameters){
             $parameters = [];
             foreach ($cleanBodyParameters as $key =>$value){
                 $parameters[] = [
                     "key"=>$key,
-                    "value"=>$value
+                    "value"=>$value,
+                    "type"=>"text"
                 ];
             }
             return $parameters;
         };
         if($mode=='formdata'){
-            $modeRawParameters = $formdataRawParameters($route['cleanBodyParameters']);
+        //    $modeRawParameters = $formdataRawParameters($route['cleanBodyParameters']);
+            $modeRawParameters = json_encode($formdataRawParameters($route['cleanBodyParameters']));
         }else{
-            $modeRawParameters = json_encode($route['cleanBodyParameters']);
+            $modeRawParameters = json_encode($route['cleanBodyParameters'],JSON_UNESCAPED_UNICODE);
         }
 
         $method = $route['methods'][0];
@@ -105,13 +174,13 @@ class PostmanCollectionWriter
         return [
             'name' => $route['metadata']['title'] != '' ? $route['metadata']['title'] : $route['uri'],
             'request' => [
-                'url' => $this->makeUrlData($route),
                 'method' => $method,
                 'header' => $this->resolveHeadersForRoute($route),
                 'body' => [
                     'mode' => $mode,
                     $mode => $modeRawParameters,
                 ],
+                'url' => $this->makeUrlData($route),
                 'description' => $route['metadata']['description'] ?? null,
                 'response' => [],
             ],
@@ -129,6 +198,7 @@ class PostmanCollectionWriter
 
         // Exclude authentication headers if they're handled by Postman auth
         $authHeader = $this->getAuthHeader();
+        //dump($authHeader);
         if (! empty($authHeader)) {
             $headers = $headers->except($authHeader);
         }
@@ -200,6 +270,29 @@ class PostmanCollectionWriter
         return $base;
     }
 
+    protected function getAuth(){
+        $auth = $this->auth;
+        if (empty($auth) || ! is_string($auth['type'] ?? null)) {
+            return null;
+        }
+
+        $type = $auth['type'];
+        switch ($auth['type']) {
+            case 'bearer':
+                $type_param = [
+                    'key'=>'token',
+                    'value'=> $auth['value'],
+                    'type'=> 'string'
+                ];
+                return [
+                    'type'=>$type,
+                    $type => [$type_param],
+                ];
+            case 'apikey':
+            default:
+                return null;
+        }
+    }
     protected function getAuthHeader()
     {
         $auth = $this->auth;
@@ -208,8 +301,6 @@ class PostmanCollectionWriter
         }
 
         switch ($auth['type']) {
-            case 'bearer':
-                return 'Authorization';
             case 'apikey':
                 $spec = $auth['apikey'];
 
@@ -218,6 +309,8 @@ class PostmanCollectionWriter
                 }
 
                 return $spec['key'];
+            case 'bearer':
+                //    return 'Authorization';
             default:
                 return null;
         }

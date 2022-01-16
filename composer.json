@@ -24,6 +24,7 @@
         "league/flysystem": "^1.0",
         "hahadu/documentarian": "^0.2",
         "hahadu/reflector": "^1.0",
+        "hahadu/postman-api": "^0.1",
         "nunomaduro/collision": "^5.0",
         "ramsey/uuid": "^3.8|^4.0",
         "symfony/var-exporter": "^4.0|^5.0"
