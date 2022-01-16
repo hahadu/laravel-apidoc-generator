@@ -108,8 +108,9 @@ class PostmanCollectionWriter
             if(!$old->isEmpty()){
                 $docInfo = $old->first();
                 dump('update',$this->postman->collections()->update($docInfo['uid'],$sendData));
+            }else{
+                dump('create',$this->postman->collections()->create($sendData));
             }
-            dump('create',$this->postman->collections()->create($sendData));
         }
 
         return json_encode($collection, JSON_PRETTY_PRINT);
