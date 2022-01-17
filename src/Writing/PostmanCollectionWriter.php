@@ -43,15 +43,21 @@ class PostmanCollectionWriter
      */
     public function __construct(Collection $routeGroups, $baseUrl)
     {
+        //dump('');
         $this->routeGroups = $routeGroups;
-        $this->protocol = Str::startsWith($baseUrl, 'https') ? 'https' : 'http';
         $this->baseUrl = $this->getBaseUrl($baseUrl);
+        $this->protocol = $this->makeProtocol();
         $this->auth = config('apidoc.postman.auth');
         if(config('apidoc.postman.api_keys')){
             $this->postman = new Postman(config('apidoc.postman.api_keys'));
         }
     }
 
+    protected function makeProtocol(){
+
+        return Str::startsWith($this->baseUrl, 'https') ? 'https' : 'http';
+
+    }
 
     /**
      * 全部数据
@@ -244,7 +250,8 @@ class PostmanCollectionWriter
             'query' => collect($route['queryParameters'])->map(function ($parameter, $key) {
                 return [
                     'key' => $key,
-                    'value' => urlencode($parameter['value']),
+                    //'value' => urlencode($parameter['value']),
+                    'value' => $parameter['value'],
                     'description' => $parameter['description'],
                     // Default query params to disabled if they aren't required and have empty values
                     'disabled' => ! $parameter['required'] && empty($parameter['value']),
@@ -252,6 +259,7 @@ class PostmanCollectionWriter
             })->values()->toArray(),
         ];
 
+        //dump($this->protocol);
         // If there aren't any url parameters described then return what we've got
         /** @var $urlParams Collection */
         if ($urlParams->isEmpty()) {
@@ -318,6 +326,9 @@ class PostmanCollectionWriter
 
     protected function getBaseUrl($baseUrl)
     {
+        if(null!=config('apidoc.postman.base_url_host')){
+            return config('apidoc.postman.base_url_host');
+        }
         if (Str::contains(app()->version(), 'Lumen')) { //Is Lumen
             $reflectionMethod = new ReflectionMethod(\Laravel\Lumen\Routing\UrlGenerator::class, 'getRootUrl');
             $reflectionMethod->setAccessible(true);

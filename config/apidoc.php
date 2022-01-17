@@ -67,6 +67,8 @@ return [
          */
         'enabled' => true,
 
+        'base_url_host'=>null,
+
         /*
          * The name for the exported Postman collection. Default: config('app.name')." API"
          */
@@ -76,6 +78,12 @@ return [
          * The description for the exported Postman collection.
          */
         'description' => null,
+
+        /*
+         * postman ApiKey
+         * see https://web.postman.co/settings/me/api-keys
+         */
+        'api_keys' =>null,
 
         /*
          * The "Auth" section that should appear in the postman collection. See the schema docs for more information:
