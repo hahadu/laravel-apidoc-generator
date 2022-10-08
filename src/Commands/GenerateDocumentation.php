@@ -7,7 +7,7 @@ use Illuminate\Routing\Route;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\URL;
 use Hahadu\ApiDoc\Extracting\Generator;
-use Hahadu\ApiDoc\Matching\RouteMatcher\Match;
+use Hahadu\ApiDoc\Matching\RouteMatcher\Matchr;
 use Hahadu\ApiDoc\Matching\RouteMatcherInterface;
 use Hahadu\ApiDoc\Tools\DocumentationConfig;
 use Hahadu\ApiDoc\Tools\Flags;
@@ -84,7 +84,7 @@ class GenerateDocumentation extends Command
 
     /**
      * @param \Hahadu\ApiDoc\Extracting\Generator $generator
-     * @param Match[] $routes
+     * @param Matchr[] $routes
      *
      * @return array
      *@throws \ReflectionException

@@ -2,7 +2,7 @@
 
 namespace Hahadu\ApiDoc\Matching;
 
-use Hahadu\ApiDoc\Matching\RouteMatcher\Match;
+use Hahadu\ApiDoc\Matching\RouteMatcher\Matchr;
 
 interface RouteMatcherInterface
 {
@@ -12,7 +12,7 @@ interface RouteMatcherInterface
      * @param array $routeRules Route rules defined under the "routes" section in config
      * @param string $router
      *
-     * @return Match[]
+     * @return Matchr[]
      */
     public function getRoutes(array $routeRules = [], string $router = 'laravel');
 }
