@@ -18,6 +18,10 @@ PHP 7.2 and Laravel/Lumen 8.1 or higher are required.
 ```sh
 composer require hahadu/laravel-apidoc-generator
 ```
+and
+```sh
+composer dump or composer update 
+```
 
 ### Laravel
 Publish the config file by running:
