@@ -108,7 +108,10 @@ class Writer
             ->with('outputPath', 'docs')
             ->with('showPostmanCollectionButton', $this->shouldGeneratePostmanCollection);
 
-        $settings = ['languages' => $this->config->get('example_languages')];
+        $settings = [
+            'languages' => $this->config->get('example_languages'),
+            'title'=>$this->config->get('DocTitle')
+            ];
         // Generate Markdown for each route
         $parsedRouteOutput = $this->generateMarkdownOutputForEachRoute($parsedRoutes, $settings);
 

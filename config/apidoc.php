@@ -9,6 +9,7 @@ return [
      */
     'type' => 'static',
 
+    'DocTitle'=> 'Api Doc Generates',
     /*
      * Static output folder: HTML documentation and assets will be generated in this folder.
      */
@@ -68,6 +69,7 @@ return [
         'enabled' => true,
 
         'base_url_host'=>null,
+        'protocol'=>'https',
 
         /*
          * The name for the exported Postman collection. Default: config('app.name')." API"

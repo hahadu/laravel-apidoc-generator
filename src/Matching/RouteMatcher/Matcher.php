@@ -4,7 +4,7 @@ namespace Hahadu\ApiDoc\Matching\RouteMatcher;
 
 use Illuminate\Routing\Route;
 
-class Matchr implements \ArrayAccess
+class Matcher implements \ArrayAccess
 {
     /**
      * @var Route

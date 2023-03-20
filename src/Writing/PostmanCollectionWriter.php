@@ -43,7 +43,6 @@ class PostmanCollectionWriter
      */
     public function __construct(Collection $routeGroups, $baseUrl)
     {
-        //dump('');
         $this->routeGroups = $routeGroups;
         $this->baseUrl = $this->getBaseUrl($baseUrl);
         $this->protocol = $this->makeProtocol();
@@ -54,9 +53,7 @@ class PostmanCollectionWriter
     }
 
     protected function makeProtocol(){
-
-        return Str::startsWith($this->baseUrl, 'https') ? 'https' : 'http';
-
+        return config('apidoc.postman.protocol','http'); //?? (Str::startsWith($this->baseUrl, 'https') ? 'https' : 'http');
     }
 
     /**
