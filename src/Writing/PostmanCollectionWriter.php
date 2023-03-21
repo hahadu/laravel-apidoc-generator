@@ -9,6 +9,8 @@ use Illuminate\Support\Str;
 use Ramsey\Uuid\Uuid;
 use ReflectionMethod;
 use Hahadu\PostmanApi\Postman;
+use Hahadu\ApiDoc\Extracting\Strategies\UrlParameters;
+use Illuminate\Routing\UrlGenerator;
 class PostmanCollectionWriter
 {
     /**
@@ -327,7 +329,7 @@ class PostmanCollectionWriter
             return config('apidoc.postman.base_url_host');
         }
         if (Str::contains(app()->version(), 'Lumen')) { //Is Lumen
-            $reflectionMethod = new ReflectionMethod(\Laravel\Lumen\Routing\UrlGenerator::class, 'getRootUrl');
+            $reflectionMethod = new ReflectionMethod(UrlGenerator::class, 'getRootUrl');
             $reflectionMethod->setAccessible(true);
             $url = app('url');
 
