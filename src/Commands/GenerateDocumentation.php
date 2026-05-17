@@ -19,18 +19,43 @@ use ReflectionException;
 
 class GenerateDocumentation extends Command
 {
+    /**
+     * The name and signature of the console command.
+     *
+     * @var string
+     */
     protected $signature = 'apidoc:generate
                             {--force : Force rewriting of existing routes}
     ';
 
+    /**
+     * The console command description.
+     *
+     * @var string
+     */
     protected $description = 'Generate your API documentation from existing Laravel routes.';
 
+    /**
+     * @var DocumentationConfig
+     */
     private DocumentationConfig $docConfig;
 
+    /**
+     * @var string
+     */
     private string $baseUrl;
 
+    /**
+     * Execute the console command.
+     *
+     * @param RouteMatcherInterface $routeMatcher
+     *
+     * @return void
+     */
     public function handle(RouteMatcherInterface $routeMatcher): void
     {
+        // Using a global static variable here, so fuck off if you don't like it.
+        // Also, the --verbose option is included with all Artisan commands.
         Flags::$shouldBeVerbose = $this->option('verbose');
 
         $this->docConfig = new DocumentationConfig(config('apidoc'));
@@ -57,7 +82,14 @@ class GenerateDocumentation extends Command
         $writer->writeDocs($groupedRoutes);
     }
 
-    /** @param Matcher[] $routes */
+    /**
+     * @param \Hahadu\ApiDoc\Extracting\Generator $generator
+     * @param Matcher[] $routes
+     *
+     * @return array
+     *@throws \ReflectionException
+     *
+     */
     private function processRoutes(Generator $generator, array $routes): array
     {
         $parsedRoutes = [];
@@ -100,6 +132,11 @@ class GenerateDocumentation extends Command
         return $parsedRoutes;
     }
 
+    /**
+     * @param array $routeControllerAndMethod
+     *
+     * @return bool
+     */
     private function isValidRoute(?array $routeControllerAndMethod): bool
     {
         if (is_array($routeControllerAndMethod)) {
@@ -109,19 +146,42 @@ class GenerateDocumentation extends Command
         return ! is_callable($routeControllerAndMethod) && ! is_null($routeControllerAndMethod);
     }
 
+    /**
+     * @param array $routeAction
+     *
+     * @return bool
+     */
     private function isClosureRoute(array $routeAction): bool
     {
         return $routeAction['uses'] instanceof \Closure;
     }
 
+    /**
+     * @param array $routeControllerAndMethod
+     *
+     * @throws ReflectionException
+     *
+     * @return bool
+     */
     private function doesControllerMethodExist(array $routeControllerAndMethod): bool
     {
         [$class, $method] = $routeControllerAndMethod;
         $reflection = new ReflectionClass($class);
 
-        return $reflection->hasMethod($method);
+        if (! $reflection->hasMethod($method)) {
+            return false;
+        }
+
+        return true;
     }
 
+    /**
+     * @param array $routeControllerAndMethod
+     *
+     * @throws ReflectionException
+     *
+     * @return bool
+     */
     private function isRouteVisibleForDocumentation(array $routeControllerAndMethod): bool
     {
         [$class, $method] = $routeControllerAndMethod;

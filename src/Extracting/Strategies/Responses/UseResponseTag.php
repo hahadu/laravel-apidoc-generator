@@ -7,15 +7,24 @@ use Hahadu\ApiDoc\Extracting\RouteDocBlocker;
 use Hahadu\ApiDoc\Extracting\Strategies\Strategy;
 use Hahadu\Reflector\Reflection;
 use Hahadu\Reflector\Reflection\Tag;
-use ReflectionClass;
-use ReflectionMethod;
 
 /**
  * Get a response from the docblock ( @response ).
  */
 class UseResponseTag extends Strategy
 {
-    public function __invoke(Route $route, ReflectionClass $controller, ReflectionMethod $method, array $routeRules, array $context = []): ?array
+    /**
+     * @param Route $route
+     * @param \ReflectionClass $controller
+     * @param \ReflectionMethod $method
+     * @param array $routeRules
+     * @param array $context
+     *
+     * @throws \Exception
+     *
+     * @return array|null
+     */
+    public function __invoke(Route $route, \ReflectionClass $controller, \ReflectionMethod $method, array $routeRules, array $context = []): ?array
     {
         $docBlocks = RouteDocBlocker::getDocBlocksFromRoute($route);
         /** @var Reflection $methodDocBlock */
@@ -24,6 +33,13 @@ class UseResponseTag extends Strategy
         return $this->getDocBlockResponses($methodDocBlock->getTags());
     }
 
+    /**
+     * Get the response from the docblock if available.
+     *
+     * @param array $tags
+     *
+     * @return array|null
+     */
     protected function getDocBlockResponses(array $tags): ?array
     {
         $responseTags = array_values(
@@ -36,7 +52,7 @@ class UseResponseTag extends Strategy
             return null;
         }
 
-        return array_map(function (Tag $responseTag) {
+        $responses = array_map(function (Tag $responseTag) {
             preg_match('/^(\d{3})?\s?([\s\S]*)$/', $responseTag->getContent(), $result);
 
             $status = $result[1] ?: 200;
@@ -44,5 +60,7 @@ class UseResponseTag extends Strategy
 
             return ['content' => $content, 'status' => (int) $status];
         }, $responseTags);
+
+        return $responses;
     }
 }

@@ -12,23 +12,45 @@ use ReflectionMethod;
 
 class Generator
 {
+    /**
+     * @var DocumentationConfig
+     */
     private DocumentationConfig $config;
 
     public function __construct(?DocumentationConfig $config = null)
     {
+        // If no config is injected, pull from global
         $this->config = $config ?: new DocumentationConfig(config('apidoc'));
     }
 
+    /**
+     * @param Route $route
+     *
+     * @return mixed
+     */
     public function getUri(Route $route): string
     {
         return $route->uri();
     }
 
+    /**
+     * @param Route $route
+     *
+     * @return mixed
+     */
     public function getMethods(Route $route): array
     {
         return array_diff($route->methods(), ['HEAD']);
     }
 
+    /**
+     * @param \Illuminate\Routing\Route $route
+     * @param array $routeRules Rules to apply when generating documentation for this route
+     *
+     * @throws \ReflectionException
+     *
+     * @return array
+     */
     public function processRoute(Route $route, array $routeRules = []): array
     {
         [$controllerName, $methodName] = Utils::getRouteClassAndMethodNames($route->getAction());
@@ -140,6 +162,7 @@ class Generator
             ],
         ];
 
+        // Use the default strategies for the stage, unless they were explicitly set
         $strategies = $this->config->get("strategies.$stage", $defaultStrategies[$stage]);
         $context[$stage] = $context[$stage] ?? [];
         foreach ($strategies as $strategyClass) {
@@ -150,10 +173,15 @@ class Generator
             if (! is_null($results)) {
                 foreach ($results as $index => $item) {
                     if ($stage == 'responses') {
+                        // Responses are additive
                         $context[$stage][] = $item;
                         continue;
                     }
+                    // Using a for loop rather than array_merge or +=
+                    // so it does not renumber numeric keys
+                    // and also allows values to be overwritten
 
+                    // Don't allow overwriting if an empty value is trying to replace a set one
                     if (! in_array($context[$stage], [null, ''], true) && in_array($item, [null, ''], true)) {
                         continue;
                     } else {
@@ -166,10 +194,19 @@ class Generator
         return $context[$stage];
     }
 
+    /**
+     * Create samples at index 0 for array parameters.
+     * Also filter out parameters which were excluded from having examples.
+     *
+     * @param array $params
+     *
+     * @return array
+     */
     protected function cleanParams(array $params): array
     {
         $values = [];
 
+        // Remove params which have no examples.
         $params = array_filter($params, function ($details) {
             return ! is_null($details['value']);
         });
@@ -185,11 +222,23 @@ class Generator
         return $values;
     }
 
+    /**
+     * For each array notation parameter (eg user.*, item.*.name, object.*.*, user[])
+     * generate concrete sample (user.0, item.0.name, object.0.0, user.0) with example as value.
+     *
+     * @param string $paramName
+     * @param mixed $paramExample
+     * @param array $values The array that holds the result
+     *
+     * @return void
+     */
     protected function generateConcreteSampleForArrayKeys(string $paramName, mixed $paramExample, array &$values = []): void
     {
         if (Str::contains($paramName, '[')) {
+            // Replace usages of [] with dot notation
             $paramName = str_replace(['][', '[', ']', '..'], ['.', '.', '', '.*.'], $paramName);
         }
-        Arr::set($values, str_replace(['.*', '*.'], ['.0', '0.'], $paramName), $paramExample);
+        // Then generate a sample item for the dot notation
+        Arr::set($values, str_replace(['.*', '*.'], ['.0','0.'], $paramName), $paramExample);
     }
 }

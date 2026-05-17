@@ -8,6 +8,7 @@ use Hahadu\Reflector\Reflection;
 use ReflectionClass;
 
 /**
+ * Class RouteReflectioner
  * Utility class to help with retrieving doc blocks from route classes and methods.
  * Also caches them so repeated access is faster.
  */
@@ -15,10 +16,17 @@ class RouteDocBlocker
 {
     protected static array $docBlocks = [];
 
-    /** @return array<string, Reflection> Method and class docblocks */
+    /**
+     * @param Route $route
+     *
+     * @throws \ReflectionException
+     * @throws \Exception
+     *
+     * @return array<string, Reflection> Method and class docblocks
+     */
     public static function getDocBlocksFromRoute(Route $route): array
     {
-        [$className, $methodName] = Utils::getRouteClassAndMethodNames($route);
+        list($className, $methodName) = Utils::getRouteClassAndMethodNames($route);
         $docBlocks = self::getCachedDocBlock($route, $className, $methodName);
         if ($docBlocks) {
             return $docBlocks;

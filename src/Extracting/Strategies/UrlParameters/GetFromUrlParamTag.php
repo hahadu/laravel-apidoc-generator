@@ -10,6 +10,7 @@ use Illuminate\Support\Str;
 use Hahadu\ApiDoc\Extracting\ParamHelpers;
 use Hahadu\ApiDoc\Extracting\RouteDocBlocker;
 use Hahadu\ApiDoc\Extracting\Strategies\Strategy;
+use Hahadu\Reflector\DocBlock;
 use Hahadu\Reflector\Reflection\Tag;
 use ReflectionClass;
 use ReflectionMethod;
@@ -34,6 +35,7 @@ class GetFromUrlParamTag extends Strategy
                 continue;
             }
 
+            // If there's a FormRequest, we check there for @urlParam tags.
             if (class_exists(LaravelFormRequest::class) && $parameterClass->isSubclassOf(LaravelFormRequest::class)
                 || class_exists(DingoFormRequest::class) && $parameterClass->isSubclassOf(DingoFormRequest::class)) {
                 $formRequestDocBlock = new Reflection($parameterClass->getDocComment());
@@ -51,21 +53,27 @@ class GetFromUrlParamTag extends Strategy
         return $this->getUrlParametersFromDocBlock($methodDocBlock->getTags());
     }
 
-    private function getUrlParametersFromDocBlock($tags): array
+    private function getUrlParametersFromDocBlock($tags)
     {
-        return collect($tags)
+        $parameters = collect($tags)
             ->filter(function ($tag) {
                 return $tag instanceof Tag && $tag->getName() === 'urlParam';
             })
             ->mapWithKeys(function (Tag $tag) {
+                // Format:
+                // @urlParam <name> <"required" (optional)> <description>
+                // Examples:
+                // @urlParam id string required The id of the post.
+                // @urlParam user_id The ID of the user.
                 preg_match('/(.+?)\s+(required\s+)?(.*)/', $tag->getContent(), $content);
                 $content = preg_replace('/\s?No-example.?/', '', $content);
                 if (empty($content)) {
-                    [$name] = preg_split('/\s+/', $tag->getContent());
+                    // this means only name was supplied
+                    list($name) = preg_split('/\s+/', $tag->getContent());
                     $required = false;
                     $description = '';
                 } else {
-                    [$_, $name, $required, $description] = $content;
+                    list($_, $name, $required, $description) = $content;
                     $description = trim($description);
                     if ($description == 'required' && empty(trim($required))) {
                         $required = $description;
@@ -74,7 +82,7 @@ class GetFromUrlParamTag extends Strategy
                     $required = trim($required) == 'required' ? true : false;
                 }
 
-                [$description, $value] = $this->parseParamDescription($description, 'string');
+                list($description, $value) = $this->parseParamDescription($description, 'string');
                 if (is_null($value) && ! $this->shouldExcludeExample($tag->getContent())) {
                     $value = Str::contains($description, ['number', 'count', 'page'])
                         ? $this->generateDummyValue('integer')
@@ -83,5 +91,7 @@ class GetFromUrlParamTag extends Strategy
 
                 return [$name => compact('description', 'required', 'value')];
             })->toArray();
+
+        return $parameters;
     }
 }

@@ -14,29 +14,59 @@ class Writer
 {
     final public const API_DOC_MARKDOWN_KEY = "api-doc-markdown";
     final public const API_DOC_COMPARE_MARKDOWN_KEY = 'api-doc-compare-markdown';
-
+    /**
+     * @var Command
+     */
     protected Command $output;
 
+    /**
+     * @var DocumentationConfig
+     */
     private DocumentationConfig $config;
 
+    /**
+     * @var \Redis
+     */
     private \Redis $redis;
 
+    /**
+     * @var string
+     */
     private string $baseUrl;
 
+    /**
+     * @var bool
+     */
     private bool $forceIt;
 
+    /**
+     * @var bool
+     */
     private bool $shouldGeneratePostmanCollection = true;
 
+    /**
+     * @var Documentarian
+     */
     private Documentarian $documentarian;
 
+    /**
+     * @var bool
+     */
     private bool $isStatic;
 
+    /**
+     * @var string
+     */
     private string $sourceOutputPath;
 
+    /**
+     * @var string
+     */
     private string $outputPath;
 
     public function __construct(Command $output, ?DocumentationConfig $config = null, bool $forceIt = false)
     {
+        // If no config is injected, pull from global
         $this->config = $config ?: new DocumentationConfig(config('apidoc'));
         $this->baseUrl = $this->config->get('base_url') ?? config('app.url');
         $this->forceIt = $forceIt;
@@ -51,6 +81,12 @@ class Writer
 
     public function writeDocs(Collection $routes): void
     {
+        // The source files (index.md, js/, css/, and images/) always go in resources/docs/source.
+        // The static assets (js/, css/, and images/) always go in public/docs/.
+        // For 'static' docs, the output files (index.html, collection.json) go in public/docs/.
+        // For 'laravel' docs, the output files (index.blade.php, collection.json)
+        // go in resources/views/apidoc/ and storage/app/apidoc/ respectively.
+
         $this->writeMarkdownAndSourceFiles($routes);
 
         $this->writeHtmlDocs();
@@ -58,6 +94,11 @@ class Writer
         $this->writePostmanCollection($routes);
     }
 
+    /**
+     * @param  Collection $parsedRoutes
+     *
+     * @return void
+     */
     public function writeMarkdownAndSourceFiles(Collection $parsedRoutes): void
     {
         $targetFile = $this->sourceOutputPath . '/source/index.md';
@@ -69,13 +110,19 @@ class Writer
 
         $settings = [
             'languages' => $this->config->get('example_languages'),
-            'title' => $this->config->get('DocTitle'),
-        ];
+            'title'=>$this->config->get('DocTitle')
+            ];
+        // Generate Markdown for each route
         $parsedRouteOutput = $this->generateMarkdownOutputForEachRoute($parsedRoutes, $settings);
 
         $frontmatter = view('apidoc::partials.frontmatter')
             ->with('settings', $settings);
 
+        /*
+         * If the target file already exists,
+         * we check if the documentation was modified
+         * and skip the modified parts of the routes.
+         */
         if (file_exists($targetFile) && file_exists($compareFile)) {
             $generatedDocumentation = file_get_contents($targetFile);
             $compareDocumentation = file_get_contents($compareFile);
@@ -119,10 +166,12 @@ class Writer
             $documentarian->create($this->sourceOutputPath);
         }
 
+        // Write output file
         file_put_contents($targetFile, $markdown);
-        file_put_contents(base_path('README.md'), $markdown);
-        $this->redis->set('shop-admin-' . self::API_DOC_MARKDOWN_KEY, (string) $markdown, 7200);
+        file_put_contents(base_path('README.md'),$markdown);
+        $this->redis->set('shop-admin-'.self::API_DOC_MARKDOWN_KEY,(string)$markdown,7200);
 
+        // Write comparable markdown file
         $compareMarkdown = view('apidoc::documentarian')
             ->with('writeCompareFile', true)
             ->with('frontmatter', $frontmatter)
@@ -134,7 +183,7 @@ class Writer
             ->with('parsedRoutes', $parsedRouteOutput);
 
         file_put_contents($compareFile, $compareMarkdown);
-        $this->redis->set('shop-admin-' . self::API_DOC_COMPARE_MARKDOWN_KEY, (string) $compareMarkdown, 7200);
+        $this->redis->set('shop-admin-'.self::API_DOC_COMPARE_MARKDOWN_KEY,(string)$compareMarkdown,7200);
 
         $this->output->info('Wrote index.md and source files to: ' . $this->sourceOutputPath);
     }
@@ -144,6 +193,7 @@ class Writer
         return $parsedRoutes->map(function (Collection $routeGroup) use ($settings) {
             return $routeGroup->map(function (array $route) use ($settings) {
                 if (count($route['cleanBodyParameters']) && ! isset($route['headers']['Content-Type'])) {
+                    // Set content type if the user forgot to set it
                     $route['headers']['Content-Type'] = 'application/json';
                 }
 
@@ -183,6 +233,13 @@ class Writer
         }
     }
 
+    /**
+     * Generate Postman collection JSON file.
+     *
+     * @param Collection $routes
+     *
+     * @return string
+     */
     public function generatePostmanCollection(Collection $routes): string
     {
         /** @var PostmanCollectionWriter $writer */
@@ -197,17 +254,19 @@ class Writer
     protected function getMarkdownToPrepend(): string
     {
         $prependFile = $this->sourceOutputPath . '/source/prepend.md';
-
-        return file_exists($prependFile)
+        $prependFileContents = file_exists($prependFile)
             ? file_get_contents($prependFile) . "\n" : '';
+
+        return $prependFileContents;
     }
 
     protected function getMarkdownToAppend(): string
     {
         $appendFile = $this->sourceOutputPath . '/source/append.md';
-
-        return file_exists($appendFile)
+        $appendFileContents = file_exists($appendFile)
             ? "\n" . file_get_contents($appendFile) : '';
+
+        return $appendFileContents;
     }
 
     protected function copyAssetsFromSourceFolderToPublicFolder(): void
@@ -230,13 +289,16 @@ class Writer
     protected function moveOutputFromSourceFolderToTargetFolder(): void
     {
         if ($this->isStatic) {
+            // Move output (index.html, css/style.css and js/all.js) to public/docs
             rename("{$this->sourceOutputPath}/index.html", "{$this->outputPath}/index.html");
         } else {
+            // Move output to resources/views
             if (! is_dir($this->outputPath)) {
                 mkdir($this->outputPath);
             }
             rename("{$this->sourceOutputPath}/index.html", "$this->outputPath/index.blade.php");
             $contents = file_get_contents("$this->outputPath/index.blade.php");
+            //
             $contents = str_replace('href="css/style.css"', 'href="{{ asset(\'/docs/css/style.css\') }}"', $contents);
             $contents = str_replace('src="js/all.js"', 'src="{{ asset(\'/docs/js/all.js\') }}"', $contents);
             $contents = str_replace('src="images/', 'src="/docs/images/', $contents);
@@ -251,6 +313,7 @@ class Writer
 
         $this->documentarian->generate($this->sourceOutputPath);
 
+        // Move assets to public folder
         $this->copyAssetsFromSourceFolderToPublicFolder();
 
         $this->moveOutputFromSourceFolderToTargetFolder();

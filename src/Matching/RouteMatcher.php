@@ -45,7 +45,7 @@ class RouteMatcher implements RouteMatcherInterface
         return $matchedRoutes;
     }
 
-    private function getAllRoutes(bool $usingDingoRouter): RouteCollection|array
+    private function getAllRoutes(bool $usingDingoRouter): \Illuminate\Routing\RouteCollection|array
     {
         if (! $usingDingoRouter) {
             return RouteFacade::getRoutes();

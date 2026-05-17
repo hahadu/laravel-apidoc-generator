@@ -24,7 +24,18 @@ use ReflectionMethod;
  */
 class UseTransformerTags extends Strategy
 {
-    public function __invoke(Route $route, ReflectionClass $controller, ReflectionMethod $method, array $routeRules, array $context = []): ?array
+    /**
+     * @param Route $route
+     * @param ReflectionClass $controller
+     * @param ReflectionMethod $method
+     * @param array $rulesToApply
+     * @param array $context
+     *
+     * @throws \Exception
+     *
+     * @return array|null
+     */
+    public function __invoke(Route $route, ReflectionClass $controller, ReflectionMethod $method, array $rulesToApply, array $context = []): ?array
     {
         $docBlocks = RouteDocBlocker::getDocBlocksFromRoute($route);
         /** @var Reflection $methodDocBlock */
@@ -33,6 +44,14 @@ class UseTransformerTags extends Strategy
         return $this->getTransformerResponse($methodDocBlock->getTags(), $route);
     }
 
+    /**
+     * Get a response from the transformer tags.
+     *
+     * @param array $tags
+     * @param Route $route
+     *
+     * @return array|null
+     */
     protected function getTransformerResponse(array $tags, Route $route): ?array
     {
         try {
@@ -77,7 +96,12 @@ class UseTransformerTags extends Strategy
         }
     }
 
-    private function getStatusCodeAndTransformerClass(Tag $tag): array
+    /**
+     * @param Tag $tag
+     *
+     * @return array
+     */
+    private function getStatusCodeAndTransformerClass($tag): array
     {
         $content = $tag->getContent();
         preg_match('/^(\d{3})?\s?([\s\S]*)$/', $content, $result);
@@ -87,6 +111,14 @@ class UseTransformerTags extends Strategy
         return [$status, $transformerClass];
     }
 
+    /**
+     * @param array $tags
+     * @param ReflectionMethod $transformerMethod
+     *
+     * @throws Exception
+     *
+     * @return string
+     */
     private function getClassToBeTransformed(array $tags, ReflectionMethod $transformerMethod): string
     {
         $modelTag = Arr::first(array_filter($tags, function ($tag) {
@@ -99,6 +131,7 @@ class UseTransformerTags extends Strategy
         } else {
             $parameter = Arr::first($transformerMethod->getParameters());
             if ($parameter->hasType() && ! $parameter->getType()->isBuiltin() && class_exists($parameter->getType()->getName())) {
+                // Ladies and gentlemen, we have a type!
                 $type = $parameter->getType()->getName();
             }
         }
@@ -110,9 +143,18 @@ class UseTransformerTags extends Strategy
         return $type;
     }
 
+    /**
+     * @param string $type
+     *
+     * @return Model|object
+     */
     protected function instantiateTransformerModel(string $type): object
     {
         try {
+            // try Eloquent model factory
+
+            // Factories are usually defined without the leading \ in the class name,
+            // but the user might write it that way in a comment. Let's be safe.
             $type = ltrim($type, '\\');
 
             return factory($type)->make();
@@ -124,11 +166,13 @@ class UseTransformerTags extends Strategy
             $instance = new $type();
             if ($instance instanceof IlluminateModel) {
                 try {
+                    // we can't use a factory but can try to get one from the database
                     $firstInstance = $type::first();
                     if ($firstInstance) {
                         return $firstInstance;
                     }
                 } catch (Exception $e) {
+                    // okay, we'll stick with `new`
                     if (Flags::$shouldBeVerbose) {
                         echo "Failed to fetch first {$type} from database; using `new` to instantiate.\n";
                     }
@@ -139,6 +183,11 @@ class UseTransformerTags extends Strategy
         return $instance;
     }
 
+    /**
+     * @param array $tags
+     *
+     * @return Tag|null
+     */
     private function getTransformerTag(array $tags): ?Tag
     {
         $transformerTags = array_values(
