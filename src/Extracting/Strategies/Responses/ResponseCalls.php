@@ -323,7 +323,6 @@ class ResponseCalls extends Strategy
      */
     protected function shouldMakeApiCall(Route $route, array $rulesToApply, array $context): bool
     {
-    {
         $allowedMethods = $rulesToApply['methods'] ?? [];
         if (empty($allowedMethods)) {
             return false;
