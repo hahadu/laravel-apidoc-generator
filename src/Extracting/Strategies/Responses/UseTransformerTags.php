@@ -110,7 +110,7 @@ class UseTransformerTags extends Strategy
         return $type;
     }
 
-    protected function instantiateTransformerModel(string $type): Model|object
+    protected function instantiateTransformerModel(string $type): object
     {
         try {
             $type = ltrim($type, '\\');

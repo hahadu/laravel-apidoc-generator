@@ -102,7 +102,7 @@ class UseApiResourceTags extends Strategy
         return $type;
     }
 
-    protected function instantiateApiResourceModel(string $type): Model|object
+    protected function instantiateApiResourceModel(string $type): object
     {
         try {
             $type = ltrim($type, '\\');
