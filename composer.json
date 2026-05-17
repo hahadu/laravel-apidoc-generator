@@ -15,22 +15,22 @@
         }
     ],
     "require": {
-        "php": ">=7.2.0",
+        "php": ">=8.1",
         "ext-json": "*",
         "fakerphp/faker": "^1.9",
-        "league/flysystem": "^1.0",
         "hahadu/documentarian": "^0.2",
-        "hahadu/reflector": "^1.0",
+        "hahadu/reflector": "^2.0",
         "hahadu/postman-api": "^0.1",
         "nunomaduro/collision": "^5.0",
-        "ramsey/uuid": "^3.8|^4.0",
         "symfony/var-exporter": "^4.0|^5.0"
     },
     "require-dev": {
         "dms/phpunit-arraysubset-asserts": "^0.3",
-        "laravel/lumen-framework": "^7.0|^8.0|^9.0|^10",
+        "laravel/lumen-framework": "^8.0|^9.0|^10",
         "league/fractal": "^0.19.0",
         "orchestra/testbench": "^3.7|^4.0|^5.0",
+        "ramsey/uuid": "^3.8|^4.0",
+        "league/flysystem": "^1.0",
         "phpstan/phpstan": "^0.11.15",
         "phpunit/phpunit": "^8.0"
     },

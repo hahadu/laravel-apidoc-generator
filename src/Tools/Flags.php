@@ -4,5 +4,5 @@ namespace Hahadu\ApiDoc\Tools;
 
 class Flags
 {
-    public static $shouldBeVerbose = false;
+    public static bool $shouldBeVerbose = false;
 }

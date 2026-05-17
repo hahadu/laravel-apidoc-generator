@@ -8,25 +8,17 @@ use Hahadu\Reflector\Reflection;
 use ReflectionClass;
 
 /**
- * Class RouteReflectioner
  * Utility class to help with retrieving doc blocks from route classes and methods.
  * Also caches them so repeated access is faster.
  */
 class RouteDocBlocker
 {
-    protected static $docBlocks = [];
+    protected static array $docBlocks = [];
 
-    /**
-     * @param Route $route
-     *
-     * @throws \ReflectionException
-     * @throws \Exception
-     *
-     * @return array<string, Reflection> Method and class docblocks
-     */
+    /** @return array<string, Reflection> Method and class docblocks */
     public static function getDocBlocksFromRoute(Route $route): array
     {
-        list($className, $methodName) = Utils::getRouteClassAndMethodNames($route);
+        [$className, $methodName] = Utils::getRouteClassAndMethodNames($route);
         $docBlocks = self::getCachedDocBlock($route, $className, $methodName);
         if ($docBlocks) {
             return $docBlocks;
@@ -47,14 +39,14 @@ class RouteDocBlocker
         return $docBlocks;
     }
 
-    protected static function getCachedDocBlock(Route $route, string $className, string $methodName)
+    protected static function getCachedDocBlock(Route $route, string $className, string $methodName): ?array
     {
         $routeId = self::getRouteCacheId($route, $className, $methodName);
 
         return self::$docBlocks[$routeId] ?? null;
     }
 
-    protected static function cacheDocBlocks(Route $route, string $className, string $methodName, array $docBlocks)
+    protected static function cacheDocBlocks(Route $route, string $className, string $methodName, array $docBlocks): void
     {
         $routeId = self::getRouteCacheId($route, $className, $methodName);
         self::$docBlocks[$routeId] = $docBlocks;

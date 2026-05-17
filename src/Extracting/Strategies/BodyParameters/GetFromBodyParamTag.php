@@ -17,7 +17,7 @@ class GetFromBodyParamTag extends Strategy
 {
     use ParamHelpers;
 
-    public function __invoke(Route $route, ReflectionClass $controller, ReflectionMethod $method, array $routeRules, array $context = [])
+    public function __invoke(Route $route, ReflectionClass $controller, ReflectionMethod $method, array $routeRules, array $context = []): ?array
     {
         foreach ($method->getParameters() as $param) {
             $paramType = $param->getType();
@@ -33,7 +33,6 @@ class GetFromBodyParamTag extends Strategy
                 continue;
             }
 
-            // If there's a FormRequest, we check there for @bodyParam tags.
             if (class_exists(LaravelFormRequest::class) && $parameterClass->isSubclassOf(LaravelFormRequest::class)
                 || class_exists(DingoFormRequest::class) && $parameterClass->isSubclassOf(DingoFormRequest::class)) {
                 $formRequestDocBlock = new Reflection($parameterClass->getDocComment());
@@ -51,27 +50,21 @@ class GetFromBodyParamTag extends Strategy
         return $this->getBodyParametersFromDocBlock($methodDocBlock->getTags());
     }
 
-    private function getBodyParametersFromDocBlock($tags)
+    private function getBodyParametersFromDocBlock($tags): array
     {
-        $parameters = collect($tags)
+        return collect($tags)
             ->filter(function ($tag) {
                 return $tag instanceof Tag && $tag->getName() === 'bodyParam';
             })
             ->mapWithKeys(function (Tag $tag) {
-                // Format:
-                // @bodyParam <name> <type> <"required" (optional)> <description>
-                // Examples:
-                // @bodyParam text string required The text.
-                // @bodyParam user_id integer The ID of the user.
                 preg_match('/(.+?)\s+(.+?)\s+(required\s+)?(.*)/', $tag->getContent(), $content);
                 $content = preg_replace('/\s?No-example.?/', '', $content);
                 if (empty($content)) {
-                    // this means only name and type were supplied
-                    list($name, $type) = preg_split('/\s+/', $tag->getContent());
+                    [$name, $type] = preg_split('/\s+/', $tag->getContent());
                     $required = false;
                     $description = '';
                 } else {
-                    list($_, $name, $type, $required, $description) = $content;
+                    [$_, $name, $type, $required, $description] = $content;
                     $description = trim($description);
                     if ($description == 'required' && empty(trim($required))) {
                         $required = $description;
@@ -81,14 +74,12 @@ class GetFromBodyParamTag extends Strategy
                 }
 
                 $type = $this->normalizeParameterType($type);
-                list($description, $example) = $this->parseParamDescription($description, $type);
+                [$description, $example] = $this->parseParamDescription($description, $type);
                 $value = is_null($example) && ! $this->shouldExcludeExample($tag->getContent())
                     ? $this->generateDummyValue($type)
                     : $example;
 
                 return [$name => compact('type', 'description', 'required', 'value')];
             })->toArray();
-
-        return $parameters;
     }
 }

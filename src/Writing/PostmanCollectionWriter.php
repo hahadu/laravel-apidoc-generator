@@ -11,69 +11,48 @@ use ReflectionMethod;
 use Hahadu\PostmanApi\Postman;
 use Hahadu\ApiDoc\Extracting\Strategies\UrlParameters;
 use Illuminate\Routing\UrlGenerator;
+
 class PostmanCollectionWriter
 {
-    /**
-     * @var Collection
-     */
-    private $routeGroups;
+    private Collection $routeGroups;
 
-    /**
-     * @var string
-     */
-    private $baseUrl;
+    private string $baseUrl;
 
-    /**
-     * @var string
-     */
-    private $protocol;
+    private string $protocol;
 
-    /**
-     * @var array|null
-     */
-    private $auth;
-    private $postmanSchema = "https://schema.getpostman.com/json/collection/v2.1.0/collection.json";
+    private ?array $auth;
 
-    /**
-     * @var Postman
-     */
-    protected $postman;
-    /**
-     * CollectionWriter constructor.
-     *
-     * @param Collection $routeGroups
-     */
+    private string $postmanSchema = "https://schema.getpostman.com/json/collection/v2.1.0/collection.json";
+
+    protected ?Postman $postman = null;
+
     public function __construct(Collection $routeGroups, $baseUrl)
     {
         $this->routeGroups = $routeGroups;
         $this->baseUrl = $this->getBaseUrl($baseUrl);
         $this->protocol = $this->makeProtocol();
         $this->auth = config('apidoc.postman.auth');
-        if(config('apidoc.postman.api_keys')){
+        if (config('apidoc.postman.api_keys')) {
             $this->postman = new Postman(config('apidoc.postman.api_keys'));
         }
     }
 
-    protected function makeProtocol(){
-        return config('apidoc.postman.protocol','http'); //?? (Str::startsWith($this->baseUrl, 'https') ? 'https' : 'http');
+    protected function makeProtocol(): string
+    {
+        return config('apidoc.postman.protocol', 'http');
     }
 
-    /**
-     * 全部数据
-     * @return false|string
-     */
-    public function getCollection()
+    public function getCollection(): string
     {
-
         $apiDocName = config('apidoc.postman.name') ?: config('app.name') . ' API';
         $collection = collect();
-        $collection->offsetSet('info',[
+        $collection->offsetSet('info', [
             'name' => $apiDocName,
             '_postman_id' => Uuid::uuid4()->toString(),
             'description' => config('apidoc.postman.description') ?: '',
             'schema' => $this->postmanSchema,
         ]);
-        $collection->offsetSet("item",$this->routeGroups->map(function (Collection $routes, $groupName) {
+        $collection->offsetSet("item", $this->routeGroups->map(function (Collection $routes, $groupName) {
             return [
                 'name' => $groupName,
                 'description' => $routes->first()['metadata']['groupDescription'],
@@ -105,73 +84,67 @@ class PostmanCollectionWriter
         if (! empty($this->auth)) {
             $collection->offsetSet('auth', $this->auth);
         }
-        if($this->postman instanceof Postman){
-            $old = $this->postman->collections()->getList()->where('name',$apiDocName);
-            $sendData = collect(['collection'=>$collection]);
+        if ($this->postman instanceof Postman) {
+            $old = $this->postman->collections()->getList()->where('name', $apiDocName);
+            $sendData = collect(['collection' => $collection]);
 
-            if(!$old->isEmpty()){
+            if (! $old->isEmpty()) {
                 $docInfo = $old->first();
-                dump('update',$this->postman->collections()->update($docInfo['uid'],$sendData->toJson()));
-            }else{
-                dump('create',$this->postman->collections()->create($sendData->toJson()));
+                dump('update', $this->postman->collections()->update($docInfo['uid'], $sendData->toJson()));
+            } else {
+                dump('create', $this->postman->collections()->create($sendData->toJson()));
             }
         }
 
         return $collection->toJson(JSON_PRETTY_PRINT);
     }
 
-
-    protected function generateAuthItem($route){
-
-        if($this->getAuth()){
+    protected function generateAuthItem($route): ?array
+    {
+        if ($this->getAuth()) {
             return $this->getAuth();
-        }else{
-
-            $position = strrpos($route['headers']['Authorization'], 'Bearer ');
-
-            if ($position !== false) {
-                $header = substr($route['headers']['Authorization'], $position + 7);
-
-                $bearToken = strpos($header, ',') !== false ? strstr(',', $header, true) : $header;
-                $type = "bearer";
-                $type_param = [[
-                    'key'=>'token',
-                    'value'=> $bearToken,
-                    'type'=> 'string'
-                ]];
-                return [
-                    'type'=>$type,
-                    $type => $type_param,
-                ];
-            }
         }
+
+        $position = strrpos($route['headers']['Authorization'], 'Bearer ');
+
+        if ($position !== false) {
+            $header = substr($route['headers']['Authorization'], $position + 7);
+
+            $bearToken = str_contains($header, ',') ? strstr(',', $header, true) : $header;
+            $type = "bearer";
+            $type_param = [[
+                'key' => 'token',
+                'value' => $bearToken,
+                'type' => 'string',
+            ]];
+            return [
+                'type' => $type,
+                $type => $type_param,
+            ];
+        }
+
+        return null;
     }
 
-    /**
-     *
-     * @param $route
-     * @return array
-     */
-    protected function generateEndpointItem($route)
+    protected function generateEndpointItem($route): array
     {
         $mode = 'raw';
 
-        $formdataRawParameters = function ($cleanBodyParameters){
+        $formdataRawParameters = function ($cleanBodyParameters) {
             $parameters = [];
-            foreach ($cleanBodyParameters as $key =>$value){
+            foreach ($cleanBodyParameters as $key => $value) {
                 $parameters[] = [
-                    "key"=>$key,
-                    "value"=>$value,
-                    "type"=>"text"
+                    "key" => $key,
+                    "value" => $value,
+                    "type" => "text",
                 ];
             }
             return $parameters;
         };
-        if($mode=='formdata'){
-        //    $modeRawParameters = $formdataRawParameters($route['cleanBodyParameters']);
+        if ($mode == 'formdata') {
             $modeRawParameters = json_encode($formdataRawParameters($route['cleanBodyParameters']));
-        }else{
-            $modeRawParameters = json_encode($route['cleanBodyParameters'],JSON_UNESCAPED_UNICODE);
+        } else {
+            $modeRawParameters = json_encode($route['cleanBodyParameters'], JSON_UNESCAPED_UNICODE);
         }
 
         $method = $route['methods'][0];
@@ -192,18 +165,11 @@ class PostmanCollectionWriter
         ];
     }
 
-    /**
-     * headers
-     * @param $route
-     * @return array
-     */
-    protected function resolveHeadersForRoute($route)
+    protected function resolveHeadersForRoute($route): array
     {
         $headers = collect($route['headers']);
 
-        // Exclude authentication headers if they're handled by Postman auth
         $authHeader = $this->getAuthHeader();
-        //dump($authHeader);
         if (! empty($authHeader)) {
             $headers = $headers->except($authHeader);
         }
@@ -222,15 +188,8 @@ class PostmanCollectionWriter
             ->all();
     }
 
-    /**
-     * request url data
-     * @param $route
-     * @return array
-     */
-    protected function makeUrlData($route)
+    protected function makeUrlData($route): array
     {
-        // URL Parameters are collected by the `UrlParameters` strategies, but only make sense if they're in the route
-        // definition. Filter out any URL parameters that don't appear in the URL.
         $urlParams = collect($route['urlParameters'])->filter(function ($_, $key) use ($route) {
             return Str::contains($route['uri'], '{' . $key . '}');
         });
@@ -239,27 +198,22 @@ class PostmanCollectionWriter
         $base = [
             'protocol' => $this->protocol,
             'host' => $this->baseUrl,
-            // Substitute laravel/symfony query params ({example}) to Postman style, prefixed with a colon
             'raw' => preg_replace_callback('/\/{(\w+)\??}(?=\/|$)/', function ($matches) {
                 return '/:' . $matches[1];
             }, $route['uri']),
-            'path' => explode("/",preg_replace_callback('/\/{(\w+)\??}(?=\/|$)/', function ($matches) {
+            'path' => explode("/", preg_replace_callback('/\/{(\w+)\??}(?=\/|$)/', function ($matches) {
                 return '/:' . $matches[1];
             }, $route['uri'])),
             'query' => collect($route['queryParameters'])->map(function ($parameter, $key) {
                 return [
                     'key' => $key,
-                    //'value' => urlencode($parameter['value']),
                     'value' => $parameter['value'],
                     'description' => $parameter['description'],
-                    // Default query params to disabled if they aren't required and have empty values
                     'disabled' => ! $parameter['required'] && empty($parameter['value']),
                 ];
             })->values()->toArray(),
         ];
 
-        //dump($this->protocol);
-        // If there aren't any url parameters described then return what we've got
         /** @var $urlParams Collection */
         if ($urlParams->isEmpty()) {
             return $base;
@@ -277,58 +231,47 @@ class PostmanCollectionWriter
         return $base;
     }
 
-    protected function getAuth(){
-        $auth = $this->auth;
-        if (empty($auth) || ! is_string($auth['type'] ?? null)) {
-            return null;
-        }
-
-        $type = $auth['type'];
-        switch ($auth['type']) {
-            case 'bearer':
-                $type_param = [
-                    'key'=>'token',
-                    'value'=> $auth['value'],
-                    'type'=> 'string'
-                ];
-                return [
-                    'type'=>$type,
-                    $type => [$type_param],
-                ];
-            case 'apikey':
-            default:
-                return null;
-        }
-    }
-    protected function getAuthHeader()
+    protected function getAuth(): ?array
     {
         $auth = $this->auth;
         if (empty($auth) || ! is_string($auth['type'] ?? null)) {
             return null;
         }
 
-        switch ($auth['type']) {
-            case 'apikey':
-                $spec = $auth['apikey'];
-
-                if (isset($spec['in']) && $spec['in'] !== 'header') {
-                    return null;
-                }
-
-                return $spec['key'];
-            case 'bearer':
-                //    return 'Authorization';
-            default:
-                return null;
-        }
+        return match ($auth['type']) {
+            'bearer' => [
+                'type' => 'bearer',
+                'bearer' => [[
+                    'key' => 'token',
+                    'value' => $auth['value'],
+                    'type' => 'string',
+                ]],
+            ],
+            default => null,
+        };
     }
 
-    protected function getBaseUrl($baseUrl)
+    protected function getAuthHeader(): ?string
     {
-        if(null!=config('apidoc.postman.base_url_host')){
+        $auth = $this->auth;
+        if (empty($auth) || ! is_string($auth['type'] ?? null)) {
+            return null;
+        }
+
+        return match ($auth['type']) {
+            'apikey' => (isset($auth['apikey']['in']) && $auth['apikey']['in'] !== 'header')
+                ? null
+                : ($auth['apikey']['key'] ?? null),
+            default => null,
+        };
+    }
+
+    protected function getBaseUrl($baseUrl): string
+    {
+        if (null != config('apidoc.postman.base_url_host')) {
             return config('apidoc.postman.base_url_host');
         }
-        if (Str::contains(app()->version(), 'Lumen')) { //Is Lumen
+        if (Str::contains(app()->version(), 'Lumen')) {
             $reflectionMethod = new ReflectionMethod(UrlGenerator::class, 'getRootUrl');
             $reflectionMethod->setAccessible(true);
             $url = app('url');

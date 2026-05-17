@@ -6,14 +6,8 @@ use Illuminate\Support\Facades\Route;
 
 class ApiDoc
 {
-    /**
-     * Binds the ApiDoc routes into the controller.
-     *
-     * @deprecated Use autoload routes instead (`config/apidoc.php`: `laravel > autoload`).
-     *
-     * @param string $path
-     */
-    public static function routes($path = '/doc')
+    /** @deprecated Use autoload routes instead (`config/apidoc.php`: `laravel > autoload`). */
+    public static function routes(string $path = '/doc'): void
     {
         Route::prefix($path)
             ->namespace('\Hahadu\ApiDoc\Http')
@@ -24,12 +18,7 @@ class ApiDoc
             });
     }
 
-    /**
-     * Get the middlewares for Laravel routes.
-     *
-     * @return array
-     */
-    protected static function middleware()
+    protected static function middleware(): array
     {
         return config('apidoc.laravel.middleware', []);
     }

@@ -11,6 +11,8 @@ use Hahadu\ApiDoc\Extracting\ParamHelpers;
 use Hahadu\ApiDoc\Extracting\Strategies\Strategy;
 use Hahadu\ApiDoc\Tools\Flags;
 use Hahadu\ApiDoc\Tools\Utils;
+use ReflectionClass;
+use ReflectionMethod;
 
 /**
  * Make a call to the route and retrieve its response.
@@ -19,16 +21,7 @@ class ResponseCalls extends Strategy
 {
     use ParamHelpers;
 
-    /**
-     * @param Route $route
-     * @param \ReflectionClass $controller
-     * @param \ReflectionMethod $method
-     * @param array $routeRules
-     * @param array $context
-     *
-     * @return array|null
-     */
-    public function __invoke(Route $route, \ReflectionClass $controller, \ReflectionMethod $method, array $routeRules, array $context = [])
+    public function __invoke(Route $route, ReflectionClass $controller, ReflectionMethod $method, array $routeRules, array $context = []): ?array
     {
         $rulesToApply = $routeRules['response_calls'] ?? [];
         if (! $this->shouldMakeApiCall($route, $rulesToApply, $context)) {
@@ -37,7 +30,6 @@ class ResponseCalls extends Strategy
 
         $this->configureEnvironment($rulesToApply);
 
-        // Mix in parsed parameters with manually specified parameters.
         $bodyParameters = array_merge($context['cleanBodyParameters'], $rulesToApply['bodyParams'] ?? []);
         $queryParameters = array_merge($context['cleanQueryParameters'], $rulesToApply['queryParams'] ?? []);
         $urlParameters = $context['cleanUrlParameters'];
@@ -66,42 +58,21 @@ class ResponseCalls extends Strategy
         return $response;
     }
 
-    /**
-     * @param array $rulesToApply
-     *
-     * @return void
-     */
-    private function configureEnvironment(array $rulesToApply)
+    private function configureEnvironment(array $rulesToApply): void
     {
         $this->startDbTransaction();
         $this->setEnvironmentVariables($rulesToApply['env'] ?? []);
         $this->setLaravelConfigs($rulesToApply['config'] ?? []);
     }
 
-    /**
-     * @param Route $route
-     * @param array $rulesToApply
-     * @param array $bodyParams
-     * @param array $queryParams
-     *
-     * @return Request
-     */
-    protected function prepareRequest(Route $route, array $rulesToApply, array $urlParams, array $bodyParams, array $queryParams, array $headers)
+    protected function prepareRequest(Route $route, array $rulesToApply, array $urlParams, array $bodyParams, array $queryParams, array $headers): Request
     {
         $uri = Utils::getFullUrl($route, $urlParams);
         $routeMethods = $this->getMethods($route);
         $method = array_shift($routeMethods);
-        $cookies = isset($rulesToApply['cookies']) ? $rulesToApply['cookies'] : [];
+        $cookies = $rulesToApply['cookies'] ?? [];
 
-        // Note that we initialise the request with the bodyPatams here
-        // and later still add them to the ParameterBag (`addBodyParameters`)
-        // The first is so the body params get added to the request content
-        // (where Laravel reads body from)
-        // The second is so they get added to the request bag
-        // (where Symfony usually reads from and Laravel sometimes does)
-        // Adding to both ensures consistency
         $request = Request::create($uri, $method, [], $cookies, [], $this->transformHeadersToServerVars($headers), json_encode($bodyParams));
-        // Doing it again to catch any ones we didn't transform properly.
         $request = $this->addHeaders($request, $route, $headers);
 
         $request = $this->addQueryParameters($request, $queryParams);
@@ -110,14 +81,8 @@ class ResponseCalls extends Strategy
         return $request;
     }
 
-    /**
-     * @param array $env
-     *
-     * @return void
-     *
-     * @deprecated Not guaranteed to overwrite application's env. Use Laravel config variables instead.
-     */
-    private function setEnvironmentVariables(array $env)
+    /** @deprecated Not guaranteed to overwrite application's env. Use Laravel config variables instead. */
+    private function setEnvironmentVariables(array $env): void
     {
         foreach ($env as $name => $value) {
             putenv("$name=$value");
@@ -127,12 +92,7 @@ class ResponseCalls extends Strategy
         }
     }
 
-    /**
-     * @param array $config
-     *
-     * @return void
-     */
-    private function setLaravelConfigs(array $config)
+    private function setLaravelConfigs(array $config): void
     {
         if (empty($config)) {
             return;
@@ -143,10 +103,7 @@ class ResponseCalls extends Strategy
         }
     }
 
-    /**
-     * @return void
-     */
-    private function startDbTransaction()
+    private function startDbTransaction(): void
     {
         try {
             app('db')->beginTransaction();
@@ -154,10 +111,7 @@ class ResponseCalls extends Strategy
         }
     }
 
-    /**
-     * @return void
-     */
-    private function endDbTransaction()
+    private function endDbTransaction(): void
     {
         try {
             app('db')->rollBack();
@@ -165,33 +119,23 @@ class ResponseCalls extends Strategy
         }
     }
 
-    /**
-     * @return void
-     */
-    private function finish()
+    private function finish(): void
     {
         $this->endDbTransaction();
     }
 
-    /**
-     * @param Request $request
-     *
-     * @return \Illuminate\Http\JsonResponse|mixed
-     */
-    public function callDingoRoute(Request $request)
+    public function callDingoRoute(Request $request): Response
     {
         /** @var Dispatcher $dispatcher */
-        $dispatcher = app(\Dingo\Api\Dispatcher::class);
+        $dispatcher = app(Dispatcher::class);
 
         foreach ($request->headers as $header => $value) {
             $dispatcher->header($header, $value);
         }
 
-        // set domain and body parameters
         $dispatcher->on($request->header('SERVER_NAME'))
             ->with($request->request->all());
 
-        // set URL and query parameters
         $uri = $request->getRequestUri();
         $query = $request->getQueryString();
         if (! empty($query)) {
@@ -199,8 +143,6 @@ class ResponseCalls extends Strategy
         }
         $response = call_user_func_array([$dispatcher, strtolower($request->method())], [$uri]);
 
-        // the response from the Dingo dispatcher is the 'raw' response from the controller,
-        // so we have to ensure it's JSON first
         if (! $response instanceof Response) {
             $response = response()->json($response);
         }
@@ -208,26 +150,13 @@ class ResponseCalls extends Strategy
         return $response;
     }
 
-    /**
-     * @param Route $route
-     *
-     * @return array
-     */
-    public function getMethods(Route $route)
+    public function getMethods(Route $route): array
     {
         return array_diff($route->methods(), ['HEAD']);
     }
 
-    /**
-     * @param Request $request
-     * @param Route $route
-     * @param array|null $headers
-     *
-     * @return Request
-     */
-    private function addHeaders(Request $request, Route $route, $headers)
+    private function addHeaders(Request $request, Route $route, ?array $headers): Request
     {
-        // set the proper domain
         if ($route->getDomain()) {
             $request->headers->add([
                 'HOST' => $route->getDomain(),
@@ -247,13 +176,7 @@ class ResponseCalls extends Strategy
         return $request;
     }
 
-    /**
-     * @param Request $request
-     * @param array $query
-     *
-     * @return Request
-     */
-    private function addQueryParameters(Request $request, array $query)
+    private function addQueryParameters(Request $request, array $query): Request
     {
         $request->query->add($query);
         $request->server->add(['QUERY_STRING' => http_build_query($query)]);
@@ -261,53 +184,29 @@ class ResponseCalls extends Strategy
         return $request;
     }
 
-    /**
-     * @param Request $request
-     * @param array $body
-     *
-     * @return Request
-     */
-    private function addBodyParameters(Request $request, array $body)
+    private function addBodyParameters(Request $request, array $body): Request
     {
         $request->request->add($body);
 
         return $request;
     }
 
-    /**
-     * @param Request $request
-     *
-     * @throws \Exception
-     *
-     * @return \Illuminate\Http\JsonResponse|mixed|\Symfony\Component\HttpFoundation\Response
-     */
-    protected function makeApiCall(Request $request)
+    protected function makeApiCall(Request $request): \Symfony\Component\HttpFoundation\Response
     {
         if (config('apidoc.router') == 'dingo') {
-            $response = $this->callDingoRoute($request);
-        } else {
-            $response = $this->callLaravelRoute($request);
+            return $this->callDingoRoute($request);
         }
 
-        return $response;
+        return $this->callLaravelRoute($request);
     }
 
-    /**
-     * @param Request $request
-     *
-     * @throws \Exception
-     *
-     * @return \Symfony\Component\HttpFoundation\Response
-     */
     protected function callLaravelRoute(Request $request): \Symfony\Component\HttpFoundation\Response
     {
-        // Confirm we're running in Laravel, not Lumen
         if (app()->bound(\Illuminate\Contracts\Http\Kernel::class)) {
             $kernel = app(\Illuminate\Contracts\Http\Kernel::class);
             $response = $kernel->handle($request);
             $kernel->terminate($request, $response);
         } else {
-            // Handle the request using the Lumen application.
             $kernel = app();
             $response = $kernel->handle($request);
         }
@@ -315,12 +214,6 @@ class ResponseCalls extends Strategy
         return $response;
     }
 
-    /**
-     * @param Route $route
-     * @param array $rulesToApply
-     *
-     * @return bool
-     */
     protected function shouldMakeApiCall(Route $route, array $rulesToApply, array $context): bool
     {
         $allowedMethods = $rulesToApply['methods'] ?? [];
@@ -328,7 +221,6 @@ class ResponseCalls extends Strategy
             return false;
         }
 
-        // Don't attempt a response call if there are already successful responses
         $successResponses = collect($context['responses'])->filter(function ($response) {
             return ((string) $response['status'])[0] == '2';
         })->count();
@@ -352,14 +244,7 @@ class ResponseCalls extends Strategy
         return false;
     }
 
-    /**
-     * Transform headers array to array of $_SERVER vars with HTTP_* format.
-     *
-     * @param  array  $headers
-     *
-     * @return array
-     */
-    protected function transformHeadersToServerVars(array $headers)
+    protected function transformHeadersToServerVars(array $headers): array
     {
         $server = [];
         $prefix = 'HTTP_';

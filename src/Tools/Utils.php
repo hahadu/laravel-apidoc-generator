@@ -18,12 +18,8 @@ class Utils
         return self::replaceUrlParameterPlaceholdersWithValues($uri, $urlParameters);
     }
 
-    /**
-     * @param array|Route $routeOrAction
-     *
-     * @return array|null
-     */
-    public static function getRouteClassAndMethodNames($routeOrAction)
+    /** @return array|null */
+    public static function getRouteClassAndMethodNames(Route|array $routeOrAction): ?array
     {
         $action = $routeOrAction instanceof Route ? $routeOrAction->getAction() : $routeOrAction;
 
@@ -40,21 +36,18 @@ class Utils
                 1 => $action[1],
             ];
         }
+
+        return null;
     }
 
     /**
      * Transform parameters in URLs into real values (/users/{user} -> /users/2).
      * Uses @urlParam values specified by caller, otherwise just uses '1'.
-     *
-     * @param string $uri
-     * @param array $urlParameters Dictionary of url params and example values
-     *
-     * @return mixed
      */
-    public static function replaceUrlParameterPlaceholdersWithValues(string $uri, array $urlParameters)
+    public static function replaceUrlParameterPlaceholdersWithValues(string $uri, array $urlParameters): string
     {
         $matches = preg_match_all('/{.+?}/i', $uri, $parameterPaths);
-        if (!$matches) {
+        if (! $matches) {
             return $uri;
         }
 
@@ -65,15 +58,13 @@ class Utils
                 $uri = str_replace($parameterPath, $example, $uri);
             }
         }
-        // Remove unbound optional parameters with nothing
         $uri = preg_replace('#{([^/]+\?)}#', '', $uri);
-        // Replace any unbound non-optional parameters with '1'
         $uri = preg_replace('#{([^/]+)}#', '1', $uri);
 
         return $uri;
     }
 
-    public static function dumpException(\Exception $e)
+    public static function dumpException(\Exception $e): void
     {
         if (class_exists(\NunoMaduro\Collision\Handler::class)) {
             $output = new ConsoleOutput(OutputInterface::VERBOSITY_VERBOSE);
@@ -87,7 +78,7 @@ class Utils
         }
     }
 
-    public static function deleteDirectoryAndContents($dir)
+    public static function deleteDirectoryAndContents($dir): void
     {
         $dir = ltrim($dir, '/');
         $adapter = new Local(realpath(__DIR__ . '/../../'));
@@ -95,18 +86,9 @@ class Utils
         $fs->deleteDir($dir);
     }
 
-    /**
-     * @param mixed $value
-     * @param int $indentationLevel
-     *
-     * @return string
-     * @throws \Symfony\Component\VarExporter\Exception\ExceptionInterface
-     *
-     */
-    public static function printPhpValue($value, int $indentationLevel = 0): string
+    public static function printPhpValue(mixed $value, int $indentationLevel = 0): string
     {
         $output = VarExporter::export($value);
-        // Padding with x spaces so they align
         $split = explode("\n", $output);
         $result = '';
         $padWith = str_repeat(' ', $indentationLevel);
@@ -123,14 +105,12 @@ class Utils
         foreach ($cleanQueryParams as $parameter => $value) {
             $paramName = urlencode($parameter);
 
-            if (!is_array($value)) {
+            if (! is_array($value)) {
                 $qs .= "$paramName=" . urlencode($value) . "&";
             } else {
                 if (array_keys($value)[0] === 0) {
-                    // List query param (eg filter[]=haha should become "filter[]": "haha")
                     $qs .= "$paramName" . '[]=' . urlencode($value[0]) . '&';
                 } else {
-                    // Hash query param (eg filter[name]=john should become "filter[name]": "john")
                     foreach ($value as $item => $itemValue) {
                         $qs .= "$paramName" . '[' . urlencode($item) . ']=' . urlencode($itemValue) . '&';
                     }
@@ -151,16 +131,14 @@ class Utils
     ): string {
         $output = "{$braces[0]}\n";
         foreach ($cleanQueryParams as $parameter => $value) {
-            if (!is_array($value)) {
+            if (! is_array($value)) {
                 $output .= str_repeat(" ", $spacesIndentation);
                 $output .= "$quote$parameter$quote$delimiter $quote$value$quote,\n";
             } else {
                 if (array_keys($value)[0] === 0) {
-                    // List query param (eg filter[]=haha should become "filter[]": "haha")
                     $output .= str_repeat(" ", $spacesIndentation);
                     $output .= "$quote$parameter" . "[]$quote$delimiter $quote$value[0]$quote,\n";
                 } else {
-                    // Hash query param (eg filter[name]=john should become "filter[name]": "john")
                     foreach ($value as $item => $itemValue) {
                         $output .= str_repeat(" ", $spacesIndentation);
                         $output .= "$quote$parameter" . "[$item]$quote$delimiter $quote$itemValue$quote,\n";

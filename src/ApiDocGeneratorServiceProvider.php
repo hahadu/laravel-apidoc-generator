@@ -10,14 +10,8 @@ use Hahadu\ApiDoc\Matching\RouteMatcherInterface;
 
 class ApiDocGeneratorServiceProvider extends ServiceProvider
 {
-    /**
-     * Bootstrap the application events.
-     *
-     * @return void
-     */
-    public function boot()
+    public function boot(): void
     {
-        //resource_path("views/");
         $this->loadViewsFrom(__DIR__ . '/../resources/views/', 'apidoc');
 
         $this->publishes([
@@ -39,16 +33,11 @@ class ApiDocGeneratorServiceProvider extends ServiceProvider
             ]);
         }
 
-        // Bind the route matcher implementation
         $this->app->bind(RouteMatcherInterface::class, config('apidoc.routeMatcher', RouteMatcher::class));
     }
 
-    /**
-     * Initializing routes in the application.
-     */
-    protected function bootRoutes()
+    protected function bootRoutes(): void
     {
-
         if (
             config('apidoc.type', 'static') === 'laravel' &&
             config('apidoc.laravel.autoload', false)

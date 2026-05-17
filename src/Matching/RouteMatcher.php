@@ -11,14 +11,14 @@ use Hahadu\ApiDoc\Matching\RouteMatcher\Matcher;
 
 class RouteMatcher implements RouteMatcherInterface
 {
-    public function getRoutes(array $routeRules = [], string $router = 'laravel')
+    public function getRoutes(array $routeRules = [], string $router = 'laravel'): array
     {
         $usingDingoRouter = strtolower($router) == 'dingo';
 
         return $this->getRoutesToBeDocumented($routeRules, $usingDingoRouter);
     }
 
-    private function getRoutesToBeDocumented(array $routeRules, bool $usingDingoRouter = false)
+    private function getRoutesToBeDocumented(array $routeRules, bool $usingDingoRouter = false): array
     {
         $allRoutes = $this->getAllRoutes($usingDingoRouter);
 
@@ -45,7 +45,7 @@ class RouteMatcher implements RouteMatcherInterface
         return $matchedRoutes;
     }
 
-    private function getAllRoutes(bool $usingDingoRouter)
+    private function getAllRoutes(bool $usingDingoRouter): RouteCollection|array
     {
         if (! $usingDingoRouter) {
             return RouteFacade::getRoutes();
@@ -59,7 +59,7 @@ class RouteMatcher implements RouteMatcherInterface
             })->toArray();
     }
 
-    private function shouldIncludeRoute(Route $route, array $routeRule, array $mustIncludes, bool $usingDingoRouter)
+    private function shouldIncludeRoute(Route $route, array $routeRule, array $mustIncludes, bool $usingDingoRouter): bool
     {
         $matchesVersion = $usingDingoRouter
             ? ! empty(array_intersect($route->versions(), $routeRule['match']['versions'] ?? []))
@@ -72,7 +72,7 @@ class RouteMatcher implements RouteMatcherInterface
             && $matchesVersion);
     }
 
-    private function shouldExcludeRoute(Route $route, array $routeRule)
+    private function shouldExcludeRoute(Route $route, array $routeRule): bool
     {
         $excludes = $routeRule['exclude'] ?? [];
 

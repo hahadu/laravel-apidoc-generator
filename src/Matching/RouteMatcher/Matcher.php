@@ -6,72 +6,42 @@ use Illuminate\Routing\Route;
 
 class Matcher implements \ArrayAccess
 {
-    /**
-     * @var Route
-     */
-    protected $route;
+    protected Route $route;
 
-    /**
-     * @var array
-     */
-    protected $rules;
+    protected array $rules;
 
-    /**
-     * Match constructor.
-     *
-     * @param Route $route
-     * @param array $applyRules
-     */
     public function __construct(Route $route, array $applyRules)
     {
         $this->route = $route;
         $this->rules = $applyRules;
     }
 
-    /**
-     * @return Route
-     */
-    public function getRoute()
+    public function getRoute(): Route
     {
         return $this->route;
     }
 
-    /**
-     * @return array
-     */
-    public function getRules()
+    public function getRules(): array
     {
         return $this->rules;
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function offsetExists($offset)
+    public function offsetExists(mixed $offset): bool
     {
         return is_callable([$this, 'get' . ucfirst($offset)]);
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function offsetGet($offset)
+    public function offsetGet(mixed $offset): mixed
     {
         return call_user_func([$this, 'get' . ucfirst($offset)]);
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function offsetSet($offset, $value)
+    public function offsetSet(mixed $offset, mixed $value): void
     {
-        return $this->$offset = $value;
+        $this->$offset = $value;
     }
 
-    /**
-     * {@inheritdoc}
-     */
-    public function offsetUnset($offset)
+    public function offsetUnset(mixed $offset): void
     {
         $this->$offset = null;
     }

@@ -9,7 +9,7 @@ use ReflectionMethod;
 
 class GetFromRouteRules extends Strategy
 {
-    public function __invoke(Route $route, ReflectionClass $controller, ReflectionMethod $method, array $routeRules, array $context = [])
+    public function __invoke(Route $route, ReflectionClass $controller, ReflectionMethod $method, array $routeRules, array $context = []): ?array
     {
         return $routeRules['headers'] ?? [];
     }

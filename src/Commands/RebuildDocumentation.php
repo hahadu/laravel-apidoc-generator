@@ -12,18 +12,20 @@ class RebuildDocumentation extends Command
 
     protected $description = 'Rebuild your API documentation from your markdown file.';
 
-    public function handle()
+    public function handle(): int
     {
         $sourceOutputPath = 'resources/docs/source';
         if (! is_dir($sourceOutputPath)) {
             $this->error('There is no existing documentation available at ' . $sourceOutputPath . '.');
 
-            return false;
+            return 1;
         }
 
         $this->info('Rebuilding API documentation from ' . $sourceOutputPath . '/index.md');
 
         $writer = new Writer($this, new DocumentationConfig(config('apidoc')));
         $writer->writeHtmlDocs();
+
+        return 0;
     }
 }
