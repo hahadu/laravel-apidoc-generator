@@ -16,13 +16,13 @@
     ],
     "require": {
         "php": ">=8.1",
-        "ext-json": "*",
-        "hahadu/documentarian": "^1.0",
-        "hahadu/reflector": "^2.0",
-        "hahadu/postman-api": "^0.1"
+        "ext-json": "*"
     },
     "require-dev": {
         "dms/phpunit-arraysubset-asserts": "^0.3",
+        "hahadu/documentarian": "^1.0",
+        "hahadu/reflector": "^2.0",
+        "hahadu/postman-api": "^0.1",
         "laravel/lumen-framework": "^8.0|^9.0|^10",
         "league/fractal": "^0.19.0",
         "orchestra/testbench": "^3.7|^4.0|^5.0",
